@@ -6,12 +6,12 @@ struct Student {
     char gender; // 'M' or 'F'
     int cls;
     int score[9]{};
+    int sum = 0;
+    int avg = 0;
 };
 
 static inline int avg_score(const Student &st) {
-    int sum = 0;
-    for (int i = 0; i < 9; ++i) sum += st.score[i];
-    return sum / 9;
+    return st.avg;
 }
 
 struct RankKey {
@@ -27,7 +27,7 @@ static inline void build_rank_keys(const unordered_map<string, Student>& student
     for (const auto &p : students) {
         RankKey rk;
         rk.name = p.first;
-        rk.avg = avg_score(p.second);
+        rk.avg = p.second.avg;
         for (int i = 0; i < 9; ++i) rk.s[i] = p.second.score[i];
         keys.emplace_back(std::move(rk));
     }
@@ -82,7 +82,8 @@ int main(){
                 continue;
             }
             Student s; s.name = name; s.gender = gender; s.cls = cls;
-            for (int i = 0; i < 9; ++i) s.score[i] = sc[i];
+            for (int i = 0; i < 9; ++i) { s.score[i] = sc[i]; s.sum += sc[i]; }
+            s.avg = s.sum / 9;
             students.emplace(name, std::move(s));
         } else if (cmd == "START") {
             if (!started) {
@@ -97,7 +98,11 @@ int main(){
                 cout << "[Error]Update failed." << '\n';
                 continue;
             }
-            if (code >= 0 && code < 9) it->second.score[code] = score;
+            if (code >= 0 && code < 9) {
+                it->second.sum += (score - it->second.score[code]);
+                it->second.score[code] = score;
+                it->second.avg = it->second.sum / 9;
+            }
         } else if (cmd == "FLUSH") {
             if (started) rebuild_ranking();
         } else if (cmd == "PRINTLIST") {
