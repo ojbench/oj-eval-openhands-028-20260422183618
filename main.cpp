@@ -9,26 +9,37 @@ struct Student {
 };
 
 static inline int avg_score(const Student &st) {
-    long long sum = 0;
+    int sum = 0;
     for (int i = 0; i < 9; ++i) sum += st.score[i];
-    return int(sum / 9);
+    return sum / 9;
 }
 
-struct Comparator {
-    const unordered_map<string, Student>* mp;
-    Comparator(const unordered_map<string, Student>* m=nullptr): mp(m) {}
-    bool operator()(const string &a, const string &b) const {
-        if (a == b) return false;
-        const Student &sa = mp->at(a);
-        const Student &sb = mp->at(b);
-        int aa = avg_score(sa), bb = avg_score(sb);
-        if (aa != bb) return aa > bb; // higher first
-        for (int i = 0; i < 9; ++i) {
-            if (sa.score[i] != sb.score[i]) return sa.score[i] > sb.score[i];
-        }
-        return a < b; // name lexicographically ascending
-    }
+struct RankKey {
+    string name;
+    int avg;
+    int s[9];
 };
+
+static inline void build_rank_keys(const unordered_map<string, Student>& students,
+                                   vector<RankKey>& keys) {
+    keys.clear();
+    keys.reserve(students.size());
+    for (const auto &p : students) {
+        RankKey rk;
+        rk.name = p.first;
+        rk.avg = avg_score(p.second);
+        for (int i = 0; i < 9; ++i) rk.s[i] = p.second.score[i];
+        keys.emplace_back(std::move(rk));
+    }
+}
+
+static inline void sort_keys(vector<RankKey>& keys) {
+    sort(keys.begin(), keys.end(), [](const RankKey& a, const RankKey& b){
+        if (a.avg != b.avg) return a.avg > b.avg;
+        for (int i = 0; i < 9; ++i) if (a.s[i] != b.s[i]) return a.s[i] > b.s[i];
+        return a.name < b.name;
+    });
+}
 
 int main(){
     ios::sync_with_stdio(false);
@@ -44,6 +55,16 @@ int main(){
         rank_pos.clear();
         rank_pos.reserve(rank_order.size()*2+1);
         for (int i = 0; i < (int)rank_order.size(); ++i) rank_pos[rank_order[i]] = i+1;
+    };
+
+    auto rebuild_ranking = [&](){
+        vector<RankKey> keys;
+        build_rank_keys(students, keys);
+        sort_keys(keys);
+        rank_order.clear();
+        rank_order.reserve(keys.size());
+        for (auto &k : keys) rank_order.push_back(std::move(k.name));
+        rebuild_positions();
     };
 
     string cmd;
@@ -66,13 +87,7 @@ int main(){
         } else if (cmd == "START") {
             if (!started) {
                 started = true;
-                // initialize ranking
-                rank_order.clear();
-                rank_order.reserve(students.size());
-                for (auto &p : students) rank_order.push_back(p.first);
-                Comparator comp(&students);
-                sort(rank_order.begin(), rank_order.end(), comp);
-                rebuild_positions();
+                rebuild_ranking();
             }
         } else if (cmd == "UPDATE") {
             string name; int code, score;
@@ -84,13 +99,7 @@ int main(){
             }
             if (code >= 0 && code < 9) it->second.score[code] = score;
         } else if (cmd == "FLUSH") {
-            if (started) {
-                Comparator comp(&students);
-                sort(rank_order.begin(), rank_order.end(), comp);
-                rebuild_positions();
-            } else {
-                // Before START, FLUSH shouldn't appear per problem guarantee; ignore.
-            }
+            if (started) rebuild_ranking();
         } else if (cmd == "PRINTLIST") {
             int n = (int)rank_order.size();
             for (int i = 0; i < n; ++i) {
@@ -110,11 +119,7 @@ int main(){
             if (pit != rank_pos.end()) pos = pit->second;
             else {
                 // Fallback if not started yet: build ranking now
-                rank_order.clear();
-                for (auto &p : students) rank_order.push_back(p.first);
-                Comparator comp(&students);
-                sort(rank_order.begin(), rank_order.end(), comp);
-                rebuild_positions();
+                rebuild_ranking();
                 pos = rank_pos[name];
             }
             cout << "STUDENT " << name << " NOW AT RANKING " << pos << '\n';
