@@ -47,8 +47,8 @@ int main(){
 
     unordered_map<string, Student> students;
     students.reserve(20000);
-    vector<string> rank_order; // names in current ranking order
-    unordered_map<string,int> rank_pos; // name -> 1-based ranking
+    vector<const Student*> rank_order; // students in current ranking order
+    unordered_map<const Student*,int> rank_pos; // student ptr -> 1-based ranking
     bool started = false;
 
     auto rebuild_positions = [&](){
@@ -63,7 +63,10 @@ int main(){
         sort_keys(keys);
         rank_order.clear();
         rank_order.reserve(keys.size());
-        for (auto &k : keys) rank_order.push_back(std::move(k.name));
+        for (auto &k : keys) {
+            auto it = students.find(k.name);
+            if (it != students.end()) rank_order.push_back(&it->second);
+        }
         rebuild_positions();
     };
 
@@ -108,7 +111,7 @@ int main(){
         } else if (cmd == "PRINTLIST") {
             int n = (int)rank_order.size();
             for (int i = 0; i < n; ++i) {
-                const Student &st = students.at(rank_order[i]);
+                const Student &st = *rank_order[i];
                 cout << (i+1) << ' ' << st.name << ' ' << (st.gender=='M'?"male":"female")
                      << ' ' << st.cls << ' ' << avg_score(st) << '\n';
             }
@@ -120,12 +123,11 @@ int main(){
                 continue;
             }
             int pos = 0;
-            auto pit = rank_pos.find(name);
+            auto pit = rank_pos.find(&it->second);
             if (pit != rank_pos.end()) pos = pit->second;
             else {
-                // Fallback if not started yet: build ranking now
                 rebuild_ranking();
-                pos = rank_pos[name];
+                pos = rank_pos[&it->second];
             }
             cout << "STUDENT " << name << " NOW AT RANKING " << pos << '\n';
         } else if (cmd == "END") {
