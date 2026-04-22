@@ -58,15 +58,14 @@ int main(){
     };
 
     auto rebuild_ranking = [&](){
-        vector<RankKey> keys;
-        build_rank_keys(students, keys);
-        sort_keys(keys);
         rank_order.clear();
-        rank_order.reserve(keys.size());
-        for (auto &k : keys) {
-            auto it = students.find(k.name);
-            if (it != students.end()) rank_order.push_back(&it->second);
-        }
+        rank_order.reserve(students.size());
+        for (auto &p : students) rank_order.push_back(&p.second);
+        sort(rank_order.begin(), rank_order.end(), [](const Student* a, const Student* b){
+            if (a->avg != b->avg) return a->avg > b->avg;
+            for (int i = 0; i < 9; ++i) if (a->score[i] != b->score[i]) return a->score[i] > b->score[i];
+            return a->name < b->name;
+        });
         rebuild_positions();
     };
 
